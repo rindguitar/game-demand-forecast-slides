@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Game Demand Forecast - ゲーム需要予測システム</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/sky.css">
+		<link rel="stylesheet" href="styles/custom-style.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section data-markdown>
+					<textarea data-template>
+
+<!-- Title -->
+<div class="title-box">
+<h3>Game Demand Forecast</h3>
+<p>Steamデータで「次に売れるゲーム要素」を予測してみた</p>
+</div>
+
+<!-- タイトル画像を置く場合はここに -->
+<!-- <img src="assets/images/title.png" alt="title_pic" height="250px"> -->
+
+---
+
+### 自己紹介
+
+<div class="profile-container">
+<div class="profile-left" data-markdown>
+
+* Rin(rindguitar)
+* 2024年11月からプログラミングを始めた
+* 機械学習（NLP・時系列予測）に挑戦中
+* [GitHub](https://github.com/rindguitar)
+</div>
+
+<div class="profile-right">
+
+<!-- <img src="assets/images/avatar.png" alt="avatar" height="350px" width="450px"> -->
+
+</div>
+</div>
+
+---
+
+### 今日のテーマ
+
+<div class="highlight-box" data-markdown>
+
+* **Steam APIのデータから、プレイヤーが求めるゲーム要素・トレンドを予測するシステムを作っています**
+	* NLP（自然言語処理）と時系列分析を組み合わせたアプローチを紹介します
+
+</div>
+
+---
+
+### 今日話すこと
+
+<div class="simple-box" data-markdown>
+
+* このプロジェクトは何か？（ゲーム需要予測とは）
+* どんな技術スタックで作っているか
+* データ収集 → NLP → 時系列予測のパイプライン
+* 工夫したポイント（DAPT）と躓いたところ
+* まとめ
+
+</div>
+
+---
+
+### ゲーム需要予測とは？
+
+<div class="simple-box" data-markdown>
+
+* Steam APIから **レビュー・プレイヤー数・タグ・価格** などのデータを収集
+* NLPと時系列分析を用いて、**プレイヤーが求めるゲーム要素やトレンド** を予測する
+* 「次にどんなゲーム要素が伸びるのか？」をデータドリブンに探る試み
+
+</div>
+
+---
+
+### 技術スタック
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+* **言語**: Python 3.10
+* **DL**: PyTorch 2.7.1 (CUDA 11.8)
+* **NLP**: Transformers / DistilBERT / BERTopic
+* **時系列**: Prophet, LSTM
+</div>
+</div>
+
+<div class="col-right">
+<div class="simple-box" data-markdown>
+
+* **データ**: Steam API
+* **DB**: SQLite
+* **可視化**: Matplotlib
+* **環境**: Docker, WSL2, NVIDIA CUDA
+</div>
+</div>
+</div>
+
+---
+
+### システムのデータフロー
+
+<div class="simple-box" data-markdown>
+
+1. **データ収集** (`src/data/`): Steam APIからレビュー・プレイヤー数・タグを取得
+2. **NLP処理** (`src/nlp/`): レビューの感情分析 + トピック抽出
+3. **時系列データ準備** (`src/timeseries/`): NLP結果とプレイヤー数を時系列に整形
+4. **予測** : Prophet / LSTM で需要を予測
+5. **統合** (`src/integration/`): 需要スコア計算 + ランキング生成
+6. **可視化** (`src/visualization/`): グラフ・ダッシュボード生成
+
+</div>
+
+---
+
+### ① データ収集
+
+<div class="simple-box" data-markdown>
+
+* Steam APIからゲーム情報・プレイヤー数（同時接続数）・レビュー・価格推移を取得
+* 段階的に規模を拡大（10件 → 1,000件 → 1万件 → 2万件）して動作確認
+* DAPT用に未ラベルのレビューコーパスを10万件規模で収集
+
+</div>
+
+---
+
+### ② NLP処理 — 感情分析
+
+<div class="simple-box" data-markdown>
+
+* DistilBERTをベースにSteamレビューの感情分析（POSITIVE / NEGATIVE）を学習
+* レビューの「賛否」を定量化し、ゲーム要素への反応を読み取る
+</div>
+
+<div class="code-block">
+<pre><code class="language-bash">make train-sentiment   # vanillaベースライン学習
+make train-test        # パイプライン確認用の学習</code></pre>
+</div>
+
+---
+
+### ② NLP処理 — トピック抽出
+
+<div class="simple-box" data-markdown>
+
+* BERTopicでレビュー群から **話題（トピック）** を自動抽出
+* 「どんなゲーム要素が語られているか」をクラスタとして可視化
+* 感情分析と組み合わせ、「何が・どう評価されているか」を捉える
+
+</div>
+
+---
+
+### 工夫したポイント — DAPT
+
+<div class="highlight-box" data-markdown>
+
+* **DAPT = ドメイン適応事前学習 (Domain-Adaptive Pre-Training)**
+* 未ラベルのSteamレビューでDistilBERTを「ゲームドメイン」に適応させてから、感情分析を微調整する
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* MLM継続学習 → ドメイン適応済みのbaseモデルを作成
+* その上で感情分析をfine-tuning → **未知ゲーム（OOD）での精度向上を確認**
+</div>
+
+---
+
+### DAPTパイプライン
+
+<div class="code-block">
+<pre><code class="language-bash"># 未ラベルコーパス収集（10万件・OOD/学習ゲーム除外）
+make collect-dapt-corpus
+
+# MLM継続学習 → models/dapt_distilbert
+make train-dapt
+
+# DAPT baseで微調整 → models/best_model（本番）
+make train-sentiment-dapt
+
+# OOD性能比較（DAPT vs sst-2 ほか）
+make compare-ood</code></pre>
+</div>
+
+---
+
+### 躓いたところ
+
+<div class="simple-box" data-markdown>
+
+* **データソースの変更**: 当初はReddit APIも使う予定だったが、規約改訂で断念 → Steam APIに一本化
+* **未知ゲームでの精度**: 学習データにないゲームだと精度が落ちる → DAPTで改善
+* **再現性**: ランダムシードで結果がブレる → seed study で影響を検証
+
+</div>
+
+---
+
+### まとめ
+
+<div class="highlight-box" data-markdown>
+
+* Steamデータ × NLP × 時系列で「ゲーム需要予測」に挑戦中
+* 感情分析 + トピック抽出でレビューを定量化し、需要予測につなげる
+* DAPTでドメイン適応し、未知ゲームでの精度向上を確認できた
+* まだ開発途中 — 時系列予測・統合パートを実装していく
+
+</div>
+
+---
+
+### 参考リンク
+
+<div class="simple-box" data-markdown>
+
+* リポジトリ: [game-demand-forecast](https://github.com/rindguitar/game-demand-forecast)
+* 技術ドキュメント: [GitHub Wiki](https://github.com/rindguitar/game-demand-forecast/wiki)
+* スライド作成: [reveal.js](https://github.com/hakimel/reveal.js)
+
+</div>
+
+					</textarea>
+				</section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
