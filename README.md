@@ -2,9 +2,15 @@
 
 ## 概要
 
-[game-demand-forecast](https://github.com/rindguitar/game-demand-forecast)（ゲーム需要予測システム）の発表用スライドです。
+[game-demand-forecast](https://github.com/rindguitar/game-demand-forecast) の発表用スライドです。
 
-Steam APIのデータを使い、NLP・時系列分析でプレイヤーが求めるゲーム要素・トレンドを予測するプロジェクトを紹介します。
+「Steamレビューの感情分析モデルは本当に良くなったのか？」を統計で検証した話を、
+以下のIssueの内容に沿って紹介します:
+
+- [#21](https://github.com/rindguitar/game-demand-forecast/issues/21) 既製汎用モデルとのOOD性能比較（ファインチューニング効果の検証）
+- [#19](https://github.com/rindguitar/game-demand-forecast/issues/19) 感情分析モデルの高精度化（DAPT）
+- [#25](https://github.com/rindguitar/game-demand-forecast/issues/25) 評価が訓練データ固定だった問題の修正
+- [#24](https://github.com/rindguitar/game-demand-forecast/issues/24) 多シード検証によるDAPT効果の頑健性
 
 ## 開発環境
 
@@ -51,12 +57,6 @@ decktape --size 1920x1080 index.html slides.pdf
 decktape --size 1600x1200 index.html slides.pdf
 ```
 
-## 免責事項
+## クレジット
 
-- 本スライドの内容に従ったいかなる結果において著者は一切の責任を負いません
-
-## LICENSE
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-This project uses [reveal.js](https://github.com/hakimel/reveal.js) which is also licensed under the MIT License.
+本スライドは [reveal.js](https://github.com/hakimel/reveal.js)（MIT License）を利用して作成しています。

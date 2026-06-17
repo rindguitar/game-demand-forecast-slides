@@ -4,7 +4,7 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-		<title>Game Demand Forecast - ゲーム需要予測システム</title>
+		<title>感情分析モデルは本当に良くなったのか？ - Game Demand Forecast</title>
 
 		<link rel="stylesheet" href="dist/reset.css">
 		<link rel="stylesheet" href="dist/reveal.css">
@@ -22,8 +22,8 @@
 
 <!-- Title -->
 <div class="title-box">
-<h3>Game Demand Forecast</h3>
-<p>Steamデータで「次に売れるゲーム要素」を予測してみた</p>
+<h3>感情分析モデルは本当に良くなったのか？</h3>
+<p>Steamレビュー × DistilBERT を「統計」で検証した話</p>
 </div>
 
 <!-- タイトル画像を置く場合はここに -->
@@ -55,8 +55,9 @@
 
 <div class="highlight-box" data-markdown>
 
-* **Steam APIのデータから、プレイヤーが求めるゲーム要素・トレンドを予測するシステムを作っています**
-	* NLP（自然言語処理）と時系列分析を組み合わせたアプローチを紹介します
+* Steamレビューの感情分析モデルを作っています
+* **「精度が上がった！」を、雰囲気ではなく統計で確かめにいった**
+	* ファインチューニングに意味はあった？／本当に効いた？／そもそも正しく測れていた？
 
 </div>
 
@@ -66,163 +67,284 @@
 
 <div class="simple-box" data-markdown>
 
-* このプロジェクトは何か？（ゲーム需要予測とは）
-* どんな技術スタックで作っているか
-* データ収集 → NLP → 時系列予測のパイプライン
-* 工夫したポイント（DAPT）と躓いたところ
-* まとめ
+1. プロジェクトの土台（感情分析モデル）
+2. **問い**：Steamで微調整する意味はあった？（OOD比較・#21）
+3. **打ち手**：DAPTで汎用モデルに勝つ（#19）
+4. **落とし穴**：評価が「暗記」を測っていた（#25）
+5. **頑健性**：その差は運じゃない？多シード検証（#24）
+6. まとめ — 学んだこと
 
 </div>
 
 ---
 
-### ゲーム需要予測とは？
+### 土台：何を作っているか
 
 <div class="simple-box" data-markdown>
 
-* Steam APIから **レビュー・プレイヤー数・タグ・価格** などのデータを収集
-* NLPと時系列分析を用いて、**プレイヤーが求めるゲーム要素やトレンド** を予測する
-* 「次にどんなゲーム要素が伸びるのか？」をデータドリブンに探る試み
+* Steam APIのレビューを集め、**感情分析（POSITIVE / NEGATIVE）** を学習
+* ベースは **DistilBERT**。Steamレビュー（学習7ゲーム・1万件）で微調整
+* 目的は「レビューの賛否を定量化」してゲーム需要予測につなげること
+* ラベルは `voted_up`（👍/👎）を流用 — 手軽だが**粗いproxy**（後で効いてくる）
 
 </div>
 
 ---
 
-### 技術スタック
+### 問い：微調整に意味はあった？ <span style="font-size:0.6em">#21</span>
+
+<div class="highlight-box" data-markdown>
+
+* 自作モデルは、**未調整の汎用モデル**より本当に強いのか？
+* 検証法：**OOD（Out-of-Distribution）テスト**
+	* 学習に使っていない **20ゲーム・2000件**（balanced）で比較
+	* 学習データで測ると「教科書持ち込み」＝**データリーケージ**になる
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* 自作（Steam微調整）vs **sst-2**（汎用 `distilbert-...-sst-2-english`）
+
+</div>
+
+---
+
+### #21 結果：ほぼ互角だった
 
 <div class="container">
 <div class="col-left">
 <div class="simple-box" data-markdown>
 
-* **言語**: Python 3.10
-* **DL**: PyTorch 2.7.1 (CUDA 11.8)
-* **NLP**: Transformers / DistilBERT / BERTopic
-* **時系列**: Prophet, LSTM
+| 指標 | 自作(Steam) | sst-2(汎用) |
+|---|---|---|
+| Accuracy | **86.5%** | 85.1% |
+| Precision | 83.5% | **87.7%** |
+| Recall | **91.0%** | 81.6% |
+| F1 | **87.1%** | 84.6% |
+
+</div>
+</div>
+<div class="col-right">
+<div class="highlight-box" data-markdown>
+
+* Accuracyの差 +1.4pt は…
+* **McNemar検定 p=0.105**
+	* → **有意差なし（誤差圏）**
+* 微調整の付加価値は限定的
+
+</div>
 </div>
 </div>
 
+---
+
+### #21 解釈：変わったのは「偏り」
+
+<div class="simple-box" data-markdown>
+
+* 変わったのは**スキル**ではなく**判定の偏り**
+	* 自作 = **Recall寄り**（ポジと言いすぎ → FP多・皮肉に弱い）
+	* sst-2 = **Precision寄り**（慎重）
+* 土台のDistilBERTが性能の大半を担っていた
+
+</div>
+
+<div class="highlight-box" data-markdown>
+
+* 次の打ち手 → **DAPT**（ドメイン適応事前学習）で土台から鍛え直す
+
+</div>
+
+---
+
+### 打ち手：DAPTとは <span style="font-size:0.6em">#19</span>
+
+<div class="highlight-box" data-markdown>
+
+* **DAPT = Domain-Adaptive Pre-Training**
+* 未ラベルのSteamレビューでDistilBERTを **MLM継続学習** → 「ゲームの言葉」に適応
+* その土台の上で感情分析を微調整する
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* コーパス：**10万件・572ゲーム**（OOD20＋学習7ゲームを除外＝リーケージ防止）
+* MLM 3エポック（GTX1060で約129分・**loss 3.55→2.11**）
+
+</div>
+
+---
+
+### #19 結果：汎用モデルに有意に勝利
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+**OOD（未知20ゲーム・2000件）**
+
+| モデル | OOD Acc |
+|---|---|
+| **Self-DAPT** | **88.8%** |
+| Self-preDAPT | 86.5% |
+| SST-2 | 85.1% |
+
+</div>
+</div>
 <div class="col-right">
 <div class="simple-box" data-markdown>
 
-* **データ**: Steam API
-* **DB**: SQLite
-* **可視化**: Matplotlib
-* **環境**: Docker, WSL2, NVIDIA CUDA
-</div>
-</div>
-</div>
+**in-domain（1万件 test）**
 
----
+| 指標 | pre | DAPT |
+|---|---|---|
+| Test Acc | 84.7% | **87.8%** |
+| Train−Test gap | 12.8 | **7.4** |
 
-### システムのデータフロー
-
-<div class="simple-box" data-markdown>
-
-1. **データ収集** (`src/data/`): Steam APIからレビュー・プレイヤー数・タグを取得
-2. **NLP処理** (`src/nlp/`): レビューの感情分析 + トピック抽出
-3. **時系列データ準備** (`src/timeseries/`): NLP結果とプレイヤー数を時系列に整形
-4. **予測** : Prophet / LSTM で需要を予測
-5. **統合** (`src/integration/`): 需要スコア計算 + ランキング生成
-6. **可視化** (`src/visualization/`): グラフ・ダッシュボード生成
+過学習が縮小＝汎化向上
 
 </div>
-
----
-
-### ① データ収集
-
-<div class="simple-box" data-markdown>
-
-* Steam APIからゲーム情報・プレイヤー数（同時接続数）・レビュー・価格推移を取得
-* 段階的に規模を拡大（10件 → 1,000件 → 1万件 → 2万件）して動作確認
-* DAPT用に未ラベルのレビューコーパスを10万件規模で収集
-
 </div>
-
----
-
-### ② NLP処理 — 感情分析
-
-<div class="simple-box" data-markdown>
-
-* DistilBERTをベースにSteamレビューの感情分析（POSITIVE / NEGATIVE）を学習
-* レビューの「賛否」を定量化し、ゲーム要素への反応を読み取る
 </div>
-
-<div class="code-block">
-<pre><code class="language-bash">make train-sentiment   # vanillaベースライン学習
-make train-test        # パイプライン確認用の学習</code></pre>
-</div>
-
----
-
-### ② NLP処理 — トピック抽出
-
-<div class="simple-box" data-markdown>
-
-* BERTopicでレビュー群から **話題（トピック）** を自動抽出
-* 「どんなゲーム要素が語られているか」をクラスタとして可視化
-* 感情分析と組み合わせ、「何が・どう評価されているか」を捉える
-
-</div>
-
----
-
-### 工夫したポイント — DAPT
 
 <div class="highlight-box" data-markdown>
 
-* **DAPT = ドメイン適応事前学習 (Domain-Adaptive Pre-Training)**
-* 未ラベルのSteamレビューでDistilBERTを「ゲームドメイン」に適応させてから、感情分析を微調整する
+* McNemar：DAPT vs preDAPT **p=0.0001**／DAPT vs sst-2 **p<0.0001**（ともに有意）
 
 </div>
 
+---
+
+### #19/#25 DAPTは何を直したか
+
+<div class="container">
+<div class="col-left">
 <div class="simple-box" data-markdown>
 
-* MLM継続学習 → ドメイン適応済みのbaseモデルを作成
-* その上で感情分析をfine-tuning → **未知ゲーム（OOD）での精度向上を確認**
+| | 直した | 壊した | 正味 |
+|---|---|---|---|
+| **FP** | 75 | 23 | **−52** |
+| FN | 19 | 25 | +6 |
+| 計 | 94 | 48 | **+46** |
+
+純改善のほぼ全てが**FP削減**
+
+</div>
+</div>
+<div class="col-right">
+<div class="highlight-box" data-markdown>
+
+* 直したのは「**great … but terrible**」型
+	* 否定語あり：57% vs 38%
+	* 接続詞混合(but)：55% vs 38%
+* 対比・否定の長文を**ポジと誤読しなくなった**
+* 代償：短文でわずかに過慎重化
+
+</div>
+</div>
 </div>
 
 ---
 
-### DAPTパイプライン
-
-<div class="code-block">
-<pre><code class="language-bash"># 未ラベルコーパス収集（10万件・OOD/学習ゲーム除外）
-make collect-dapt-corpus
-
-# MLM継続学習 → models/dapt_distilbert
-make train-dapt
-
-# DAPT baseで微調整 → models/best_model（本番）
-make train-sentiment-dapt
-
-# OOD性能比較（DAPT vs sst-2 ほか）
-make compare-ood</code></pre>
-</div>
-
----
-
-### 躓いたところ
-
-<div class="simple-box" data-markdown>
-
-* **データソースの変更**: 当初はReddit APIも使う予定だったが、規約改訂で断念 → Steam APIに一本化
-* **未知ゲームでの精度**: 学習データにないゲームだと精度が落ちる → DAPTで改善
-* **再現性**: ランダムシードで結果がブレる → seed study で影響を検証
-
-</div>
-
----
-
-### まとめ
+### 落とし穴：暗記を測っていた <span style="font-size:0.6em">#25</span>
 
 <div class="highlight-box" data-markdown>
 
-* Steamデータ × NLP × 時系列で「ゲーム需要予測」に挑戦中
-* 感情分析 + トピック抽出でレビューを定量化し、需要予測につなげる
-* DAPTでドメイン適応し、未知ゲームでの精度向上を確認できた
-* まだ開発途中 — 時系列予測・統合パートを実装していく
+* OOD精度は上がったのに、誤分類分析では **DAPTの方が誤りが多い**（旧577→新681）という逆の結果
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* 原因：分析スクリプトが **`reviews_10000` 全件（約70%は訓練データ）** で予測していた
+* 過学習の少ないDAPTは**暗記が少ない** → 訓練部分の誤りが増えただけ
+* つまり測っていたのは「汎化」ではなく **「訓練データの暗記」**（train acc 旧97.5%→新95.2%）
+
+</div>
+
+---
+
+### #25 修正：本来の用途に合わせる
+
+<div class="simple-box" data-markdown>
+
+* 複数スクリプトが開発用データを**ハードコード**していた
+* `--input` / `--model` / `--output` で**任意データ・任意モデル**を渡せるよう汎用化
+	* `analyze_misclassified.py` / `extract_topics.py` / `explain_misclassified.py`
+* 新規 `diff_misclassified.py`：2モデルの誤分類を差分し fixed/broke を抽出
+* → **未知データ(OOD)で正しく**「DAPTが直した／壊した」を測れるように
+
+</div>
+
+---
+
+### 頑健性：その差は運じゃない？ <span style="font-size:0.6em">#24</span>
+
+<div class="highlight-box" data-markdown>
+
+* 前の結果は **seed=42 の1回ずつ**。シードの運で出た差かもしれない
+* 気づき：固定すべき乱数は2か所
+	* データ分割（`train_test_split`）… 固定済み
+	* **学習の内部**（重み初期化・shuffle・dropout）`torch.manual_seed` … **抜けていた**
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* 方針A：学習を完全固定し、**別シード×1回ずつ**で 0〜14 の **15シード**を実行
+
+</div>
+
+---
+
+### #24 結果：+2.3ptは「盛れていた」
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+**OOD Acc（n=15）**
+
+| | mean ± SD |
+|---|---|
+| **DAPT** | **88.73% ± 0.54** |
+| vanilla | 87.94% ± 0.78 |
+
+精度↑ かつ ブレ↓
+
+</div>
+</div>
+<div class="col-right">
+<div class="highlight-box" data-markdown>
+
+* 正直な効果量：**+0.79pt**
+	* 11/15シードでDAPT勝利
+	* paired t-test **p=0.0053**（有意）
+* 単発の +2.3pt は vanillaの**下振れ**で膨らんでいた
+
+</div>
+</div>
+</div>
+
+<div class="simple-box" data-markdown>
+
+* 結論：DAPTの効果は運の一発ではなく、**小さいが有意で安定**
+
+</div>
+
+---
+
+### まとめ — 学んだこと
+
+<div class="highlight-box" data-markdown>
+
+* **比較は公平に**：未知データ(OOD)＋対照実験で「微調整の価値」を切り分けた（#21）
+* **DAPTは効く**：汎用モデルに有意に勝利。直したのは対比・否定の長文（#19）
+* **測り方を疑う**：訓練データで測ると“暗記”を見てしまう（#25）
+* **差は統計で確かめる**：seed1発の数字を鵜呑みにせず、多シードで頑健性を検証（#24）
+* 残る天井：ラベルが `voted_up` proxy ＝ 皮肉・両面評価はノイズ（Irreducible Error）
 
 </div>
 
@@ -233,7 +355,8 @@ make compare-ood</code></pre>
 <div class="simple-box" data-markdown>
 
 * リポジトリ: [game-demand-forecast](https://github.com/rindguitar/game-demand-forecast)
-* 技術ドキュメント: [GitHub Wiki](https://github.com/rindguitar/game-demand-forecast/wiki)
+* 関連Issue: [#21](https://github.com/rindguitar/game-demand-forecast/issues/21) / [#19](https://github.com/rindguitar/game-demand-forecast/issues/19) / [#25](https://github.com/rindguitar/game-demand-forecast/issues/25) / [#24](https://github.com/rindguitar/game-demand-forecast/issues/24)
+* 用語解説: [GitHub Wiki](https://github.com/rindguitar/game-demand-forecast/wiki)（OOD / データリーケージ / McNemar検定 / DAPT ほか）
 * スライド作成: [reveal.js](https://github.com/hakimel/reveal.js)
 
 </div>
