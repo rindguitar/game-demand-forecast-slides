@@ -1,29 +1,31 @@
 <!doctype html>
 <html lang="ja">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-		<title>感情分析モデルは本当に良くなったのか？ - Game Demand Forecast</title>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-		<link rel="stylesheet" href="dist/reset.css">
-		<link rel="stylesheet" href="dist/reveal.css">
-		<link rel="stylesheet" href="dist/theme/sky.css">
-		<link rel="stylesheet" href="styles/custom-style.css">
+	<title>感情分析モデルは本当に良くなったのか？ - Game Demand Forecast</title>
 
-		<!-- Theme used for syntax highlighted code -->
-		<link rel="stylesheet" href="plugin/highlight/monokai.css">
-	</head>
-	<body>
-		<div class="reveal">
-			<div class="slides">
-				<section data-markdown>
-					<textarea data-template>
+	<link rel="stylesheet" href="dist/reset.css">
+	<link rel="stylesheet" href="dist/reveal.css">
+	<link rel="stylesheet" href="dist/theme/sky.css">
+	<link rel="stylesheet" href="styles/custom-style.css">
+
+	<!-- Theme used for syntax highlighted code -->
+	<link rel="stylesheet" href="plugin/highlight/monokai.css">
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+			<section data-markdown>
+				<textarea data-template>
 
 <!-- Title -->
 <div class="title-box">
-<h3>感情分析モデルは本当に良くなったのか？</h3>
-<p>Steamレビュー × DistilBERT を「統計」で検証した話</p>
+<h3>感情分析モデルの精度向上と限界</h3>
+<p>感情分析の限界が見えた話</p>
 </div>
 
 <!-- タイトル画像を置く場合はここに -->
@@ -39,12 +41,12 @@
 * Rin(rindguitar)
 * 2024年11月からプログラミングを始めた
 * 機械学習（NLP・時系列予測）に挑戦中
-* [GitHub](https://github.com/rindguitar)
+* GitHub https://github.com/rindguitar
 </div>
 
 <div class="profile-right">
 
-<!-- <img src="assets/images/avatar.png" alt="avatar" height="350px" width="450px"> -->
+<img src="assets/images/avatar.png" alt="avatar" height="250px" width="350px">
 
 </div>
 </div>
@@ -53,64 +55,52 @@
 
 ### 今日のテーマ
 
-<div class="highlight-box" data-markdown>
-
-* Steamレビューの感情分析モデルを作っています
-* **「精度が上がった！」を、雰囲気ではなく統計で確かめにいった**
-	* ファインチューニングに意味はあった？／本当に効いた？／そもそも正しく測れていた？
-
-</div>
-
----
-
-### 今日話すこと
 
 <div class="simple-box" data-markdown>
 
-1. プロジェクトの土台（感情分析モデル）
-2. **問い**：Steamで微調整する意味はあった？（OOD比較・#21）
-3. **打ち手**：DAPTで汎用モデルに勝つ（#19）
-4. **落とし穴**：評価が「暗記」を測っていた（#25）
-5. **頑健性**：その差は運じゃない？多シード検証（#24）
+1. 何を作っているのか？
+2. レビューで学習とファインチューニングするだけで変わる？（OOD比較）
+3. DAPTで汎用モデルに勝つ
+4. その差は運じゃない？（多シード検証）
+5. 感情分析の限界
 6. まとめ — 学んだこと
 
 </div>
 
 ---
 
-### 土台：何を作っているか
+### 1. 何を作っているか？
 
 <div class="simple-box" data-markdown>
 
-* Steam APIのレビューを集め、**感情分析（POSITIVE / NEGATIVE）** を学習
-* ベースは **DistilBERT**。Steamレビュー（学習7ゲーム・1万件）で微調整
-* 目的は「レビューの賛否を定量化」してゲーム需要予測につなげること
+* Steam APIの英語レビューを集め、**感情分析**するモデル
+* ベースは **DistilBERT**。Steamレビュー（7ゲーム・計1万件）で学習
+* 目的はレビューからゲーム需要予測に繋げること
 * ラベルは `voted_up`（👍/👎）を流用 — 手軽だが**粗いproxy**（後で効いてくる）
 
 </div>
 
 ---
 
-### 問い：微調整に意味はあった？ <span style="font-size:0.6em">#21</span>
+### 2. レビューで学習とファインチューニングするだけで変わる？ <span style="font-size:0.6em"></span>
 
 <div class="highlight-box" data-markdown>
 
-* 自作モデルは、**未調整の汎用モデル**より本当に強いのか？
+* 自作モデルは、**未学習の汎用モデル**より本当に強いのか？
 * 検証法：**OOD（Out-of-Distribution）テスト**
-	* 学習に使っていない **20ゲーム・2000件**（balanced）で比較
-	* 学習データで測ると「教科書持ち込み」＝**データリーケージ**になる
+	* 学習に使っていない **20ゲーム・計2000件**で比較
 
 </div>
 
 <div class="simple-box" data-markdown>
 
-* 自作（Steam微調整）vs **sst-2**（汎用 `distilbert-...-sst-2-english`）
+* 自作（Steamレビュー学習）vs **sst-2**（同じBertベースで英語2クラス）
 
 </div>
 
 ---
 
-### #21 結果：ほぼ互角だった
+### 結果：ほぼ互角だった
 
 <div class="container">
 <div class="col-left">
@@ -131,7 +121,7 @@
 * Accuracyの差 +1.4pt は…
 * **McNemar検定 p=0.105**
 	* → **有意差なし（誤差圏）**
-* 微調整の付加価値は限定的
+* 学習とファインチューニングの付加価値は限定的
 
 </div>
 </div>
@@ -139,7 +129,7 @@
 
 ---
 
-### #21 解釈：変わったのは「偏り」
+### 変わったのは「偏り」
 
 <div class="simple-box" data-markdown>
 
@@ -158,26 +148,25 @@
 
 ---
 
-### 打ち手：DAPTとは <span style="font-size:0.6em">#19</span>
+### 3. DAPTで汎用モデルに勝つ <span style="font-size:0.6em"></span>
 
 <div class="highlight-box" data-markdown>
 
 * **DAPT = Domain-Adaptive Pre-Training**
-* 未ラベルのSteamレビューでDistilBERTを **MLM継続学習** → 「ゲームの言葉」に適応
-* その土台の上で感情分析を微調整する
+* Steamレビューを使い、穴埋め形式問題をモデルに行わせる → 「ゲーム界隈の言葉、文脈」に適応
+* その土台の上で学習、微調整する
 
 </div>
 
 <div class="simple-box" data-markdown>
 
-* コーパス：**10万件・572ゲーム**（OOD20＋学習7ゲームを除外＝リーケージ防止）
-* MLM 3エポック（GTX1060で約129分・**loss 3.55→2.11**）
+* **計10万件・572ゲーム**（OOD20＋学習7ゲームを除外＝リーケージ防止）
 
 </div>
 
 ---
 
-### #19 結果：汎用モデルに有意に勝利
+### 結果：汎用モデルに有意に勝利
 
 <div class="container">
 <div class="col-left">
@@ -211,13 +200,13 @@
 
 <div class="highlight-box" data-markdown>
 
-* McNemar：DAPT vs preDAPT **p=0.0001**／DAPT vs sst-2 **p<0.0001**（ともに有意）
+* McNemar：DAPT vs preDAPT **p=0.0001**／DAPT vs sst-2 **p=0.0001**（ともに有意）
 
 </div>
 
 ---
 
-### #19/#25 DAPTは何を直したか
+### DAPTは何を直したか
 
 <div class="container">
 <div class="col-left">
@@ -236,7 +225,7 @@
 <div class="col-right">
 <div class="highlight-box" data-markdown>
 
-* 直したのは「**great … but terrible**」型
+* 直したのは接続詞混合「**great … but terrible**」型
 	* 否定語あり：57% vs 38%
 	* 接続詞混合(but)：55% vs 38%
 * 対比・否定の長文を**ポジと誤読しなくなった**
@@ -248,58 +237,26 @@
 
 ---
 
-### 落とし穴：暗記を測っていた <span style="font-size:0.6em">#25</span>
-
-<div class="highlight-box" data-markdown>
-
-* OOD精度は上がったのに、誤分類分析では **DAPTの方が誤りが多い**（旧577→新681）という逆の結果
-
-</div>
-
-<div class="simple-box" data-markdown>
-
-* 原因：分析スクリプトが **`reviews_10000` 全件（約70%は訓練データ）** で予測していた
-* 過学習の少ないDAPTは**暗記が少ない** → 訓練部分の誤りが増えただけ
-* つまり測っていたのは「汎化」ではなく **「訓練データの暗記」**（train acc 旧97.5%→新95.2%）
-
-</div>
-
----
-
-### #25 修正：本来の用途に合わせる
-
-<div class="simple-box" data-markdown>
-
-* 複数スクリプトが開発用データを**ハードコード**していた
-* `--input` / `--model` / `--output` で**任意データ・任意モデル**を渡せるよう汎用化
-	* `analyze_misclassified.py` / `extract_topics.py` / `explain_misclassified.py`
-* 新規 `diff_misclassified.py`：2モデルの誤分類を差分し fixed/broke を抽出
-* → **未知データ(OOD)で正しく**「DAPTが直した／壊した」を測れるように
-
-</div>
-
----
-
-### 頑健性：その差は運じゃない？ <span style="font-size:0.6em">#24</span>
+### 4. その差は運じゃない？ <span style="font-size:0.6em"></span>
 
 <div class="highlight-box" data-markdown>
 
 * 前の結果は **seed=42 の1回ずつ**。シードの運で出た差かもしれない
 * 気づき：固定すべき乱数は2か所
-	* データ分割（`train_test_split`）… 固定済み
-	* **学習の内部**（重み初期化・shuffle・dropout）`torch.manual_seed` … **抜けていた**
+	* データ分割（train・val・test）… 旧自作とDAPT後は**ここのみ固定**
+	* **学習の内部**（重み初期化・shuffle・dropout）… **これが抜けていた**
 
 </div>
 
 <div class="simple-box" data-markdown>
 
-* 方針A：学習を完全固定し、**別シード×1回ずつ**で 0〜14 の **15シード**を実行
+* 学習を完全固定し、**別シード×1回ずつ**で 0〜14 の **15シード**を実行
 
 </div>
 
 ---
 
-### #24 結果：+2.3ptは「盛れていた」
+### 結果：+2.3ptは「盛れていた」
 
 <div class="container">
 <div class="col-left">
@@ -310,9 +267,9 @@
 | | mean ± SD |
 |---|---|
 | **DAPT** | **88.73% ± 0.54** |
-| vanilla | 87.94% ± 0.78 |
+| pre_dapt | 87.94% ± 0.78 |
 
-精度↑ かつ ブレ↓
+精度↑ ブレ↓
 
 </div>
 </div>
@@ -321,8 +278,7 @@
 
 * 正直な効果量：**+0.79pt**
 	* 11/15シードでDAPT勝利
-	* paired t-test **p=0.0053**（有意）
-* 単発の +2.3pt は vanillaの**下振れ**で膨らんでいた
+* 単発の +2.3pt は pre_daptの**下振れ**で膨らんでいた
 
 </div>
 </div>
@@ -336,15 +292,67 @@
 
 ---
 
-### まとめ — 学んだこと
+### 5. 感情分析の限界 <span style="font-size:0.6em"></span>
 
 <div class="highlight-box" data-markdown>
 
-* **比較は公平に**：未知データ(OOD)＋対照実験で「微調整の価値」を切り分けた（#21）
-* **DAPTは効く**：汎用モデルに有意に勝利。直したのは対比・否定の長文（#19）
-* **測り方を疑う**：訓練データで測ると“暗記”を見てしまう（#25）
-* **差は統計で確かめる**：seed1発の数字を鵜呑みにせず、多シードで頑健性を検証（#24）
-* 残る天井：ラベルが `voted_up` proxy ＝ 皮肉・両面評価はノイズ（Irreducible Error）
+* DAPTで伸びたが、それでも **OOD Acc は約89%で頭打ち**
+* 原因はモデルではなく **ラベルそのもの**
+	* `voted_up`（👍/👎）は「本文の感情」ではなく「**推奨するか**」
+	* 本文がネガでも👍、ポジでも👎 が混ざる → **ラベル自体がノイズ**
+
+</div>
+
+<div class="simple-box" data-markdown>
+
+* つまり残りの誤りは、賢いモデルでも**消せない領域**に入っている
+
+</div>
+
+---
+
+### 消せない誤り＝Irreducible Error
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+**ラベルと本文がズレる例**
+
+* 皮肉：「最高のバグ製造機 10/10」
+	* 本文はネガ → でも 👍
+* 両面評価：「神ゲーだが最適化が酷い」
+	* 人によって 👍／👎 が割れる
+
+</div>
+</div>
+<div class="col-right">
+<div class="highlight-box" data-markdown>
+
+* これは**正解ラベル自体が曖昧**である
+	* モデルをどれだけ鍛えても消えない（**Irreducible Error**）
+* 人が見ても読み取れない、ラベルのつけ間違いのようなものがどうしても存在する。
+
+</div>
+</div>
+</div>
+
+<div class="simple-box" data-markdown>
+
+* 「精度の天井」は性能不足とは限らず、**問題設定の限界**だった
+
+</div>
+
+---
+
+### 6. まとめ — 学んだこと
+
+<div class="highlight-box" data-markdown>
+
+* **比較は公平に**：未知データ(OOD)＋対照実験で「微調整の価値」を切り分けた
+* **DAPTは効く**：汎用モデルに有意に勝利。直したのは対比・否定の長文
+* **差は統計で確かめる**：seed1発の数字を鵜呑みにせず、多シードで頑健性を検証
+* 精度、性能の問題と思っていたが、そもそもの限界があった
 
 </div>
 
@@ -355,31 +363,30 @@
 <div class="simple-box" data-markdown>
 
 * リポジトリ: [game-demand-forecast](https://github.com/rindguitar/game-demand-forecast)
-* 関連Issue: [#21](https://github.com/rindguitar/game-demand-forecast/issues/21) / [#19](https://github.com/rindguitar/game-demand-forecast/issues/19) / [#25](https://github.com/rindguitar/game-demand-forecast/issues/25) / [#24](https://github.com/rindguitar/game-demand-forecast/issues/24)
 * 用語解説: [GitHub Wiki](https://github.com/rindguitar/game-demand-forecast/wiki)（OOD / データリーケージ / McNemar検定 / DAPT ほか）
-* スライド作成: [reveal.js](https://github.com/hakimel/reveal.js)
 
 </div>
 
 					</textarea>
-				</section>
-			</div>
+			</section>
 		</div>
+	</div>
 
-		<script src="dist/reveal.js"></script>
-		<script src="plugin/notes/notes.js"></script>
-		<script src="plugin/markdown/markdown.js"></script>
-		<script src="plugin/highlight/highlight.js"></script>
-		<script>
-			// More info about initialization & config:
-			// - https://revealjs.com/initialization/
-			// - https://revealjs.com/config/
-			Reveal.initialize({
-				hash: true,
+	<script src="dist/reveal.js"></script>
+	<script src="plugin/notes/notes.js"></script>
+	<script src="plugin/markdown/markdown.js"></script>
+	<script src="plugin/highlight/highlight.js"></script>
+	<script>
+		// More info about initialization & config:
+		// - https://revealjs.com/initialization/
+		// - https://revealjs.com/config/
+		Reveal.initialize({
+			hash: true,
 
-				// Learn about plugins: https://revealjs.com/plugins/
-				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
-			});
-		</script>
-	</body>
+			// Learn about plugins: https://revealjs.com/plugins/
+			plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+		});
+	</script>
+</body>
+
 </html>

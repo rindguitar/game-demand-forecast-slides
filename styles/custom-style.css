@@ -197,6 +197,17 @@
     border-radius: 20px;
 }
 
+/* 2カラム（.container）内のボックスは縦積み・カラム幅に収める
+   （simple-boxのflex横並び／width110%・負マージンによる隣カラムとの重なりを防ぐ）*/
+.container .simple-box,
+.container .highlight-box {
+    display: block;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+}
+
 /* タイトルスライド用のボックス */
 .title-box {
     background-color: rgba(255, 255, 255, 0.9);
