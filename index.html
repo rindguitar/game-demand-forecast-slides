@@ -258,36 +258,25 @@
 
 ### 結果：+2.3ptは「盛れていた」
 
+<img src="assets/images/seed_study.png" alt="シード別OOD精度（DAPT vs vanilla・±SD帯）" width="82%" style="display:block; margin:0 auto; border-radius:10px;">
+
 <div class="container">
 <div class="col-left">
-<div class="simple-box" data-markdown>
-
-**OOD Acc（n=15）**
-
-| | mean ± SD |
-|---|---|
-| **DAPT** | **88.73% ± 0.54** |
-| pre_dapt | 87.94% ± 0.78 |
-
-精度↑ ブレ↓
-
-</div>
-</div>
-<div class="col-right">
 <div class="highlight-box" data-markdown>
 
-* 正直な効果量：**+0.79pt**
-	* 11/15シードでDAPT勝利
+* 正直な効果量： **+0.79pt**
+* 11/15シードでDAPT勝利
 * 単発の +2.3pt は pre_daptの**下振れ**で膨らんでいた
 
 </div>
 </div>
+<div class="col-right">
+<div class="simple-box" data-markdown style="height:100%; display:flex; flex-direction:column; justify-content:center;">
+
+* 結論：**精度↑ ブレ↓** DAPTの効果は運の一発ではなく、**小さいが有意で安定**
+
 </div>
-
-<div class="simple-box" data-markdown>
-
-* 結論：DAPTの効果は運の一発ではなく、**小さいが有意で安定**
-
+</div>
 </div>
 
 ---
@@ -350,9 +339,9 @@
 <div class="highlight-box" data-markdown>
 
 * **比較は公平に**：未知データ(OOD)＋対照実験で「微調整の価値」を切り分けた
-* **DAPTは効く**：汎用モデルに有意に勝利。直したのは対比・否定の長文
+* **DAPTは効く**：精度を安定させ、汎用モデルに有意に勝利。
 * **差は統計で確かめる**：seed1発の数字を鵜呑みにせず、多シードで頑健性を検証
-* 精度、性能の問題と思っていたが、そもそもの限界があった
+* **ラベルの限界**:精度、性能の問題と思っていたが、モデルを賢くしても消せない限界があった
 
 </div>
 
