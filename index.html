@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-	<title>感情分析モデルは本当に良くなったのか？ - Game Demand Forecast</title>
+	<title>自作して見えた感情分析モデルの限界</title>
 
 	<link rel="stylesheet" href="dist/reset.css">
 	<link rel="stylesheet" href="dist/reveal.css">
@@ -24,8 +24,8 @@
 
 <!-- Title -->
 <div class="title-box">
-<h3>感情分析モデルの精度向上と限界</h3>
-<p>感情分析の限界が見えた話</p>
+<h3>自作して見えた</h3>
+<h3>感情分析モデルの限界</h3>
 </div>
 
 <!-- タイトル画像を置く場合はここに -->
@@ -73,7 +73,7 @@
 
 <div class="simple-box" data-markdown>
 
-* Steam APIの英語レビューを集め、**感情分析**するモデル
+* Steam APIで英語レビューを集め、**感情分析**をするモデル
 * ベースは **DistilBERT**。Steamレビュー（7ゲーム・計1万件）で学習
 * 目的はレビューからゲーム需要予測に繋げること
 * ラベルは `voted_up`（👍/👎）を流用 — 手軽だが**粗いproxy**（後で効いてくる）
@@ -82,19 +82,41 @@
 
 ---
 
-### 2. レビューで学習とファインチューニングするだけで変わる？ <span style="font-size:0.6em"></span>
+### 学習と評価の設計
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+**学習（自作モデル）**
+* モデルは **DistilBERT**（BERTの軽量版・約60%高速で性能97%維持 → 手元GPUで学習可）
+* 入力はレビュー本文 ＋ `voted_up`
+* 1万件を train / val / test に分割
+* 👍/👎 の2クラス分類として微調整 → loss低減
+
+</div>
+</div>
+<div class="col-right">
+<div class="highlight-box" data-markdown>
+
+**評価（OOD設計）**
+* 学習に使った **7ゲームは除外**
+* 未知の **20ゲーム・2000件** で測定
+* 「初見のゲームで通用するか」＝ **汎化性能** を見る
+
+</div>
+</div>
+</div>
+
+---
+
+### 2. ドメイン学習と<br>ファインチューニングするだけで変わる？
 
 <div class="highlight-box" data-markdown>
 
-* 自作モデルは、**未学習の汎用モデル**より本当に強いのか？
-* 検証法：**OOD（Out-of-Distribution）テスト**
-	* 学習に使っていない **20ゲーム・計2000件**で比較
-
-</div>
-
-<div class="simple-box" data-markdown>
-
-* 自作（Steamレビュー学習）vs **sst-2**（同じBertベースで英語2クラス）
+* **Steamレビュー学習の自作** vs **映画レビュー学習の汎用**（DistilBERT-Finetuned-SST-2）
+	* 同じDistilBERTベースなので **ドメイン学習の効果だけ** を切り分けられる
+* 判定は同じ2000件で両モデルを評価する **対応ありデータ** → **McNemar検定**（有意水準 **α=0.05**）
 
 </div>
 
@@ -106,7 +128,7 @@
 <div class="col-left">
 <div class="simple-box" data-markdown>
 
-| 指標 | 自作(Steam) | sst-2(汎用) |
+| 指標 | 自作(Steam) | 汎用(映画) |
 |---|---|---|
 | Accuracy | **86.5%** | 85.1% |
 | Precision | 83.5% | **87.7%** |
@@ -135,7 +157,7 @@
 
 * 変わったのは**スキル**ではなく**判定の偏り**
 	* 自作 = **Recall寄り**（ポジと言いすぎ → FP多・皮肉に弱い）
-	* sst-2 = **Precision寄り**（慎重）
+	* 汎用 = **Precision寄り**（慎重）
 * 土台のDistilBERTが性能の大半を担っていた
 
 </div>
@@ -160,7 +182,7 @@
 
 <div class="simple-box" data-markdown>
 
-* **計10万件・572ゲーム**（OOD20＋学習7ゲームを除外＝リーケージ防止）
+* **計10万件・572ゲーム**<br>（OOD20＋学習7ゲームを除外＝リーケージ防止）
 
 </div>
 
@@ -176,9 +198,9 @@
 
 | モデル | OOD Acc |
 |---|---|
-| **Self-DAPT** | **88.8%** |
-| Self-preDAPT | 86.5% |
-| SST-2 | 85.1% |
+| **DAPT後** | **88.8%** |
+| 旧自作 | 86.5% |
+| 汎用(SST-2) | 85.1% |
 
 </div>
 </div>
@@ -200,7 +222,7 @@
 
 <div class="highlight-box" data-markdown>
 
-* McNemar：DAPT vs preDAPT **p=0.0001**／DAPT vs sst-2 **p=0.0001**（ともに有意）
+* McNemar：DAPT vs preDAPT **p=0.0001**<br>DAPT vs sst-2 **p=0.0001**（ともに有意）
 
 </div>
 
@@ -273,7 +295,7 @@
 <div class="col-right">
 <div class="simple-box" data-markdown style="height:100%; display:flex; flex-direction:column; justify-content:center;">
 
-* 結論：**精度↑ ブレ↓** DAPTの効果は運の一発ではなく、**小さいが有意で安定**
+* 結論：**精度↑ ブレ↓**<br>DAPTの効果は運ではなく**小さいが有意で安定**
 
 </div>
 </div>
@@ -288,13 +310,13 @@
 * DAPTで伸びたが、それでも **OOD Acc は約89%で頭打ち**
 * 原因はモデルではなく **ラベルそのもの**
 	* `voted_up`（👍/👎）は「本文の感情」ではなく「**推奨するか**」
-	* 本文がネガでも👍、ポジでも👎 が混ざる → **ラベル自体がノイズ**
+	* 本文がネガでも👍、ポジでも👎 が混ざる<br>→ **ラベル自体がノイズ**
 
 </div>
 
 <div class="simple-box" data-markdown>
 
-* つまり残りの誤りは、賢いモデルでも**消せない領域**に入っている
+* つまり残りの誤りは、<br>賢いモデルでも**消せない領域**に入っている
 
 </div>
 
