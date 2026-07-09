@@ -100,9 +100,9 @@
 <div class="highlight-box" data-markdown>
 
 **評価（OOD設計）**
-* 学習に使った **7ゲームは除外**
+* 学習で使用した**7ゲームは除外**
 * 未知の **20ゲーム・2000件** で測定
-* 「初見のゲームで通用するか」＝ **汎化性能** を見る
+* 初見レビューで通用するか**汎化性能** を見る
 
 </div>
 </div>
@@ -115,7 +115,7 @@
 <div class="highlight-box" data-markdown>
 
 * **Steamレビュー学習の自作** vs **映画レビュー学習の汎用**（DistilBERT-Finetuned-SST-2）
-	* 同じDistilBERTベースなので **ドメイン学習の効果だけ** を切り分けられる
+	* 同じDistilBERTベースなので**ドメイン学習の効果だけ**を切り分けられる
 * 判定は同じ2000件で両モデルを評価する **対応ありデータ** → **McNemar検定**（有意水準 **α=0.05**）
 
 </div>
@@ -141,8 +141,7 @@
 <div class="highlight-box" data-markdown>
 
 * Accuracyの差 +1.4pt は…
-* **McNemar検定 p=0.105**
-	* → **有意差なし（誤差圏）**
+* **McNemar検定 p=0.105** → **有意差なし（誤差圏）**
 * 学習とファインチューニングの付加価値は限定的
 
 </div>
@@ -175,8 +174,9 @@
 <div class="highlight-box" data-markdown>
 
 * **DAPT = Domain-Adaptive Pre-Training**
-* Steamレビューを使い、穴埋め形式問題をモデルに行わせる → 「ゲーム界隈の言葉、文脈」に適応
-* その土台の上で学習、微調整する
+* Steamレビューで**穴埋め問題（MLM）**を解かせる
+	* 例：`Great graphics, but the [MASK] loop gets repetitive fast.` → `gameplay`
+* ゲーム界隈の語彙・文脈を吸収 → その土台の上でファインチューニング
 
 </div>
 
@@ -209,7 +209,7 @@
 
 **in-domain（1万件 test）**
 
-| 指標 | pre | DAPT |
+| 指標 | DAPT前 | DAPT後 |
 |---|---|---|
 | Test Acc | 84.7% | **87.8%** |
 | Train−Test gap | 12.8 | **7.4** |
@@ -247,11 +247,36 @@
 <div class="col-right">
 <div class="highlight-box" data-markdown>
 
-* 直したのは接続詞混合「**great … but terrible**」型
-	* 否定語あり：57% vs 38%
-	* 接続詞混合(but)：55% vs 38%
-* 対比・否定の長文を**ポジと誤読しなくなった**
-* 代償：短文でわずかに過慎重化
+* 直したのは対比・否定の長文（「**great … but terrible**」型）
+* preDAPTが**ポジと誤読**していたのをDAPTが正した
+* 代償として短文でわずかに過慎重化
+
+</div>
+</div>
+</div>
+
+---
+
+### DAPTが正した実例（OODの実文）
+
+<div class="container">
+<div class="col-left">
+<div class="simple-box" data-markdown>
+
+**FP：褒めるが実は否定**
+> "**Beautiful artwork, but** I didn't find the gameplay loop engaging..."（Hades）
+
+DAPT前：ポジティブ ❌ → DAPT後：ネガティブ ⭕
+
+</div>
+</div>
+<div class="col-right">
+<div class="simple-box" data-markdown>
+
+**FN：否定的な語に見えて称賛**
+> "It's actually a **really good** kart racer, the dev did a **fantastic job**..."（Nightmare Kart）
+
+DAPT前：ネガティブ ❌ → DAPT後：ポジティブ ⭕
 
 </div>
 </div>
@@ -263,16 +288,16 @@
 
 <div class="highlight-box" data-markdown>
 
-* 前の結果は **seed=42 の1回ずつ**。シードの運で出た差かもしれない
-* 気づき：固定すべき乱数は2か所
-	* データ分割（train・val・test）… 旧自作とDAPT後は**ここのみ固定**
-	* **学習の内部**（重み初期化・shuffle・dropout）… **これが抜けていた**
+* seed=42 の1回ずつでは、その差はシードの運かもしれない
+* → **15回の独立試行**（seed 0〜14）で頑健性を確認（多シード反復）
 
 </div>
 
 <div class="simple-box" data-markdown>
 
-* 学習を完全固定し、**別シード×1回ずつ**で 0〜14 の **15シード**を実行
+* 気づき（学び）：**固定すべき乱数は2か所**あった
+	* データ分割は固定していたが、**学習の内部**（重み初期化・shuffle・dropout）が抜けていた
+	* ここを固定して初めて「各シード＝再現可能な1試行」になる
 
 </div>
 
@@ -340,9 +365,8 @@
 <div class="col-right">
 <div class="highlight-box" data-markdown>
 
-* これは**正解ラベル自体が曖昧**である
-	* モデルをどれだけ鍛えても消えない（**Irreducible Error**）
-* 人が見ても読み取れない、ラベルのつけ間違いのようなものがどうしても存在する。
+* **正解ラベル自体が曖昧** → どれだけ鍛えても消えない（**Irreducible Error**）
+* 人が見ても判定できない例が残る
 
 </div>
 </div>
